@@ -1,0 +1,120 @@
+<!DOCTYPE html><html style="overflow: hidden; height: 100%;"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Log In</title>
+<style>
+body { font-family:sans-serif; }
+nav { user-select:none; -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; }
+dt { font-weight:bold; }
+</style>
+<style id="disneyid-style" type="text/css">div#disneyid-wrapper{position:absolute;display:none;opacity:0;top:0;left:0;width:100%;height:100%;}div#disneyid-wrapper.state-active {z-index: 9999999;opacity:1;transition:opacity 300ms;-webkit-transition:opacity 300ms;}iframe#disneyid-iframe{width:100%;height:100%;}</style></head><body style="overflow: hidden; height: 100%;">
+<nav></nav>
+<dl></dl>
+<script src="https://cdn.registerdisney.go.com/v2/outer/DisneyID.js"></script>
+<script>
+var info = /[?&](info|debug)(?:=|&|$)/.test(location.search);
+function log(dt, dd) {
+	console.log(dt, dd);
+	if (info) {
+		var newMarkup = '<dt>'+dt+'</dt>';
+		if (dd !== undefined) {
+			newMarkup += '<dd>'+JSON.stringify(dd).replace(/,"/g,', "')+'</dd>';
+		}
+		document.querySelector('dl').innerHTML += newMarkup;
+	}
+}
+function logCallback(dt) {
+	return function(dd) {
+		log(dt, dd);
+	};
+}
+function S2() {
+	return (/(?:^| )espn_s2=([^;]+)/.exec(document.cookie)||[])[1] || null;
+}
+function mailto() {
+	var body = document.querySelector('dl').innerHTML.replace(/<dt>/g,'').replace(/<dd>/g,'\t').replace(/<\/d[td]>/g,'\n');
+	location.assign('mailto:?to=&subject=Log%20In%20Info&body='+encodeURIComponent(body));
+}
+function redirect() {
+	if (info) return;
+	var URL = (/[?&](?:returnURL|referer|redirect|appRedirect)=(http.+)(?:$|&)/.exec(location.search)||[])[1];
+	window.setTimeout(function(){
+		location.assign(URL&&decodeURIComponent(URL) || document.referrer || 'http://www.espn.com');
+	}, 200);
+}
+function launchLoginReauth() {
+	did.getLoggedInStatus()
+	.then(function(loggedInStatus){
+		if (loggedInStatus) {
+			log('launchReauth()');
+			did.launchReauth()
+			.catch(logCallback('launchReauth() rejected'));
+			did.getGuest()
+			.catch(function(){
+				log('Attempting forceTokenRefresh()');
+				did.forceTokenRefresh()
+				.then(function(){
+					log('Retrying launchReauth()');
+					did.launchReauth();
+				});
+			});
+		} else {
+			log('launchLogin()');
+			did.launchLogin()
+			.catch(logCallback('launchLogin() rejected'));
+		}
+	});
+}
+window.onerror = function(msg) {
+   log('JavaScript Error', msg);
+};
+var did = DisneyID.get({
+	clientId: (/[?&]clientId=ESPN/).test(location.search) ? location.search.match(/[?&]clientId=([^&=]+)/)[1] : 'ESPN-ESPNCOM',
+	cssOverride: 'https://secure.espncdn.com/combiner/c?css=disneyid/core.css',
+	responderPage: 'https://'+location.hostname+'/login/responder/',
+	migrationResponderPage: 'https://gone.espn.go.com/login/responder/',
+	logLevel: 'LOG',
+	initialize: true
+});
+if (/\.go\.com$/.test(location.hostname)) {
+	did.migrationResponderPage = null;
+}
+['init','login','close','create','logout','refresh','update','low-trust','opt-in','reauth','primary-account','error'].forEach(function(e) {
+	did.on(e, logCallback(e));
+});
+did.on('reauth', redirect);
+did.on('login', redirect);
+did.on('close', redirect);
+did.on('init', function(){
+	if (/[?&]logout(?:=|&|$)/.test(location.search)) {
+		log('Attempting logout()');
+		did.logout()
+		.then(redirect, redirect);
+	} else if (info) {
+		log('S2 Cookie', S2());
+		did.getLoggedInStatus()
+		.then(function(loggedInStatus){
+			log('getLoggedInStatus()', loggedInStatus);
+			if (loggedInStatus) {
+				did.getTrustStateStatus()
+				.then(logCallback('getTrustStateStatus()'))
+				.catch(logCallback('getTrustStateStatus() rejected'));
+				did.getGuest()
+				.then(logCallback('getGuest()'))
+				.catch(logCallback('getGuest() rejected'));
+			}
+		})
+		.catch(logCallback('getLoggedInStatus() rejected'));
+	} else {
+		launchLoginReauth();
+	}
+});
+if (info) {
+	log(new Date());
+	log(navigator.userAgent);
+	log('S2 Cookie', S2());
+	document.querySelector('nav').innerHTML = '<button onclick=launchLoginReauth()>Log In</button><button onclick=mailto()>Send Email</button>';
+}
+</script><iframe id="disneyid-secure-responder" name="disneyid-secure-responder" src="https://www.espn.com/login/responder/?clientId=ESPN-ESPNCOM-PROD&amp;scheme=http&amp;postMessageOrigin=http%3A%2F%2Fwww.espn.com%2Flogin%2F&amp;cookieDomain=www.espn.com&amp;config=PROD&amp;logLevel=LOG&amp;topHost=www.espn.com&amp;langPref=en-US&amp;cssOverride=https%3A%2F%2Fsecure.espncdn.com%2Fcombiner%2Fc%3Fcss%3Ddisneyid%2Fcore.css&amp;responderPage=https%3A%2F%2Fwww.espn.com%2Flogin%2Fresponder%2F&amp;buildId=157599bfa88" style="display: none;"></iframe>
+
+<div id="disneyid-wrapper" class="state-active" style="display: block;"><iframe id="disneyid-iframe" name="disneyid-iframe" frameborder="0" src="https://cdn.registerdisney.go.com/v2/ESPN-ESPNCOM-PROD/en-US?include=config,l10n,js,html&amp;scheme=http&amp;postMessageOrigin=http%3A%2F%2Fwww.espn.com%2Flogin%2F&amp;cookieDomain=www.espn.com&amp;config=PROD&amp;logLevel=LOG&amp;topHost=www.espn.com&amp;cssOverride=https%3A%2F%2Fsecure.espncdn.com%2Fcombiner%2Fc%3Fcss%3Ddisneyid%2Fcore.css&amp;responderPage=https%3A%2F%2Fwww.espn.com%2Flogin%2Fresponder%2F&amp;buildId=157599bfa88"></iframe></div><iframe id="disneyid-secure-migration-responder" name="disneyid-secure-migration-responder" src="https://gone.espn.go.com/login/responder/?clientId=ESPN-ESPNCOM-PROD&amp;scheme=http&amp;postMessageOrigin=http%3A%2F%2Fwww.espn.com%2Flogin%2F&amp;cookieDomain=www.espn.com&amp;config=PROD&amp;logLevel=LOG&amp;topHost=www.espn.com&amp;langPref=en-US&amp;cssOverride=https%3A%2F%2Fsecure.espncdn.com%2Fcombiner%2Fc%3Fcss%3Ddisneyid%2Fcore.css&amp;responderPage=https%3A%2F%2Fwww.espn.com%2Flogin%2Fresponder%2F&amp;buildId=157599bfa88&amp;espn-migration=true" style="display: none;"></iframe></body></html>
